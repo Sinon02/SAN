@@ -27,10 +27,10 @@ gradient_clip: True
 use_label_mask: False
 
 # 训练数据
-train_image_path: 'data/train_image.pkl'
-train_label_path: 'data/train_label.pkl'
-eval_image_path: 'data/test_image.pkl'
-eval_label_path: 'data/test_label.pkl'
+train_image_path: 'data/CROHME/train_image.pkl'
+train_label_path: 'data/CROHME/train_label.pkl'
+eval_image_path: 'data/CROHME/test_image.pkl'
+eval_label_path: 'data/CROHME/test_label.pkl'
 
 word_path: 'data/word.txt'
 

@@ -1,6 +1,6 @@
 import os
 from tqdm import tqdm
-from config import DATASET_PATH, DATASET_NAME, TRAIN_CAPTION_PATH, TEST_CAPTION_PATH
+from config import DATASET_PATH, DATASET_NAME, CAPTION_PATH
 
 class Tree:
     def __init__(self, label, parent_label='None', id=0, parent_id=0, op='none'):
@@ -172,18 +172,10 @@ def generate(label, out):
                 f.write(f'{id+1}\t<eos>\t{id}\t{label}\tNone\tNone\tNone\tNone\tNone\tNone\tNone\n')
 
 
+for dataset_type in ['train', 'test']:
+    label = os.path.join(DATASET_PATH, CAPTION_PATH[dataset_type][DATASET_NAME])
+    out = os.path.join(DATASET_PATH, f'{dataset_type}_hyb')
+    if not os.path.exists(out):
+        os.makedirs(out)
+    generate(label, out)
 
-train_label = os.path.join(DATASET_PATH, TRAIN_CAPTION_PATH[DATASET_NAME])
-train_out = os.path.join(DATASET_PATH, 'train_hyb')
-if not os.path.exists(train_out):
-    os.makedirs(train_out)
-
-generate(train_label, train_out)
-
-
-test_label = os.path.join(DATASET_PATH, TEST_CAPTION_PATH[DATASET_NAME])
-test_out = os.path.join(DATASET_PATH, 'test_hyb')
-if not os.path.exists(test_out):
-    os.makedirs(test_out)
-
-generate(test_label, test_out)

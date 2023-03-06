@@ -1,11 +1,12 @@
-import torch
 import pickle as pkl
-from torch.utils.data import DataLoader, Dataset, RandomSampler, SequentialSampler
+from paddle.io import Dataset, BatchSampler, DataLoader, RandomSampler
+import paddle
+
+# from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 import cv2
 
 
 class HYBTr_Dataset(Dataset):
-
     def __init__(self, params, image_path, label_path, words, is_train=True):
         super(HYBTr_Dataset, self).__init__()
         with open(image_path, 'rb') as f:
@@ -25,59 +26,73 @@ class HYBTr_Dataset(Dataset):
         return len(self.labels)
 
     def __getitem__(self, idx):
-
         name = self.name_list[idx]
 
         image = self.images[name]
 
-        image = torch.Tensor(image) / 255
+        image = paddle.to_tensor(image) / 255
         image = image.unsqueeze(0)
 
         label = self.labels[name]
 
         child_words = [item.split()[1] for item in label]
         child_words = self.words.encode(child_words)
-        child_words = torch.LongTensor(child_words)
+        child_words = paddle.to_tensor(child_words, dtype='int64')
         child_ids = [int(item.split()[0]) for item in label]
-        child_ids = torch.LongTensor(child_ids)
+        child_ids = paddle.to_tensor(child_ids, dtype='int64')
 
         parent_words = [item.split()[3] for item in label]
         parent_words = self.words.encode(parent_words)
-        parent_words = torch.LongTensor(parent_words)
+        parent_words = paddle.to_tensor(parent_words, dtype='int64')
         parent_ids = [int(item.split()[2]) for item in label]
-        parent_ids = torch.LongTensor(parent_ids)
-
+        parent_ids = paddle.to_tensor(parent_ids, dtype='int64')
 
         struct_label = [item.split()[4:] for item in label]
-        struct = torch.zeros((len(struct_label), len(struct_label[0]))).long()
+        struct = paddle.zeros((len(struct_label), len(struct_label[0])), dtype='int64')
         for i in range(len(struct_label)):
             for j in range(len(struct_label[0])):
                 struct[i][j] = struct_label[i][j] != 'None'
 
-        label = torch.cat([child_ids.unsqueeze(1), child_words.unsqueeze(1), parent_ids.unsqueeze(1), parent_words.unsqueeze(1), struct], dim=1)
+        label = paddle.concat(
+            [
+                child_ids.unsqueeze(1),
+                child_words.unsqueeze(1),
+                parent_ids.unsqueeze(1),
+                parent_words.unsqueeze(1),
+                struct,
+            ],
+            axis=1,
+        )
 
         return image, label
 
     def collate_fn(self, batch_images):
-
         max_width, max_height, max_length = 0, 0, 0
         batch, channel = len(batch_images), batch_images[0][0].shape[0]
         proper_items = []
         for item in batch_images:
-            if item[0].shape[1] * max_width > self.image_width * self.image_height or item[0].shape[2] * max_height > self.image_width * self.image_height:
+            if (
+                item[0].shape[1] * max_width > self.image_width * self.image_height
+                or item[0].shape[2] * max_height > self.image_width * self.image_height
+            ):
                 continue
-            max_height = item[0].shape[1] if item[0].shape[1] > max_height else max_height
+            max_height = (
+                item[0].shape[1] if item[0].shape[1] > max_height else max_height
+            )
             max_width = item[0].shape[2] if item[0].shape[2] > max_width else max_width
-            max_length = item[1].shape[0] if item[1].shape[0] > max_length else max_length
+            max_length = (
+                item[1].shape[0] if item[1].shape[0] > max_length else max_length
+            )
             proper_items.append(item)
 
-        images, image_masks = torch.zeros((len(proper_items), channel, max_height, max_width)), torch.zeros(
-            (len(proper_items), 1, max_height, max_width))
-        labels, labels_masks = torch.zeros((len(proper_items), max_length, 11)).long(), torch.zeros(
-            (len(proper_items), max_length, 2))
+        images, image_masks = paddle.zeros(
+            (len(proper_items), channel, max_height, max_width)
+        ), paddle.zeros((len(proper_items), 1, max_height, max_width), dtype='bool')
+        labels, labels_masks = paddle.zeros(
+            (len(proper_items), max_length, 11), dtype='int64'
+        ), paddle.zeros((len(proper_items), max_length, 2), dtype='bool')
 
         for i in range(len(proper_items)):
-
             _, h, w = proper_items[i][0].shape
             images[i][:, :h, :w] = proper_items[i][0]
             image_masks[i][:, :h, :w] = 1
@@ -93,26 +108,48 @@ class HYBTr_Dataset(Dataset):
 
 
 def get_dataset(params):
-
     words = Words(params['word_path'])
 
     params['word_num'] = len(words)
     params['struct_num'] = 7
-    print(f"training data，images: {params['train_image_path']} labels: {params['train_label_path']}")
-    print(f"test data，images: {params['eval_image_path']} labels: {params['eval_label_path']}")
-    train_dataset = HYBTr_Dataset(params, params['train_image_path'], params['train_label_path'], words)
-    eval_dataset = HYBTr_Dataset(params, params['eval_image_path'], params['eval_label_path'], words)
+    print(
+        f"training data，images: {params['train_image_path']} labels: {params['train_label_path']}"
+    )
+    print(
+        f"test data，images: {params['eval_image_path']} labels: {params['eval_label_path']}"
+    )
+    train_dataset = HYBTr_Dataset(
+        params, params['train_image_path'], params['train_label_path'], words
+    )
+    eval_dataset = HYBTr_Dataset(
+        params, params['eval_image_path'], params['eval_label_path'], words
+    )
 
     train_sampler = RandomSampler(train_dataset)
     eval_sampler = RandomSampler(eval_dataset)
 
-    train_loader = DataLoader(train_dataset, batch_size=params['batch_size'], sampler=train_sampler,
-                              num_workers=params['workers'], collate_fn=train_dataset.collate_fn, pin_memory=True)
-    eval_loader = DataLoader(eval_dataset, batch_size=1, sampler=eval_sampler,
-                              num_workers=params['workers'], collate_fn=eval_dataset.collate_fn, pin_memory=True)
+    train_batch_sampler = BatchSampler(
+        sampler=train_sampler, batch_size=params['batch_size']
+    )
+    eval_batch_sampler = BatchSampler(sampler=eval_sampler, batch_size=1)
 
-    print(f'train dataset: {len(train_dataset)} train steps: {len(train_loader)} '
-          f'eval dataset: {len(eval_dataset)} eval steps: {len(eval_loader)}')
+    train_loader = DataLoader(
+        train_dataset,
+        batch_sampler=train_batch_sampler,
+        num_workers=params['workers'],
+        collate_fn=train_dataset.collate_fn,
+    )
+    eval_loader = DataLoader(
+        eval_dataset,
+        batch_sampler=eval_batch_sampler,
+        num_workers=params['workers'],
+        collate_fn=eval_dataset.collate_fn,
+    )
+
+    print(
+        f'train dataset: {len(train_dataset)} train steps: {len(train_loader)} '
+        f'eval dataset: {len(eval_dataset)} eval steps: {len(eval_loader)}'
+    )
 
     return train_loader, eval_loader
 

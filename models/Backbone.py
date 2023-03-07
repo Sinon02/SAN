@@ -3,6 +3,7 @@ import models
 import paddle
 import paddle.nn.functional as F
 
+
 class Backbone(nn.Layer):
     def __init__(self, params=None):
         super(Backbone, self).__init__()

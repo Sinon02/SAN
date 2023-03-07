@@ -4,7 +4,7 @@ from models.Hierarchical_attention.attention import Attention
 import paddle.nn.functional as F
 
 
-class SAN_decoder(nn.Module):
+class SAN_decoder(nn.Layer):
     def __init__(self, params):
         super(SAN_decoder, self).__init__()
 

@@ -1,67 +1,71 @@
 import math
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
+from paddle import nn
+import paddle
+import paddle.nn.functional as F
 
 
 # DenseNet-B
-class Bottleneck(nn.Module):
+class Bottleneck(nn.Layer):
     def __init__(self, nChannels, growthRate, use_dropout):
         super(Bottleneck, self).__init__()
         interChannels = 4 * growthRate
-        self.bn1 = nn.BatchNorm2d(interChannels)
-        self.conv1 = nn.Conv2d(nChannels, interChannels, kernel_size=1, bias=False)
-        self.bn2 = nn.BatchNorm2d(growthRate)
-        self.conv2 = nn.Conv2d(interChannels, growthRate, kernel_size=3, padding=1, bias=False)
+        self.bn1 = nn.BatchNorm2D(interChannels)
+        self.conv1 = nn.Conv2D(nChannels, interChannels, kernel_size=1, bias_attr=False)
+        self.bn2 = nn.BatchNorm2D(growthRate)
+        self.conv2 = nn.Conv2D(
+            interChannels, growthRate, kernel_size=3, padding=1, bias_attr=False
+        )
         self.use_dropout = use_dropout
         self.dropout = nn.Dropout(p=0.2)
 
     def forward(self, x):
-        out = F.relu(self.bn1(self.conv1(x)), inplace=True)
+        out = F.relu(self.bn1(self.conv1(x)))
         if self.use_dropout:
             out = self.dropout(out)
-        out = F.relu(self.bn2(self.conv2(out)), inplace=True)
+        out = F.relu(self.bn2(self.conv2(out)))
         if self.use_dropout:
             out = self.dropout(out)
-        out = torch.cat((x, out), 1)
+        out = paddle.concat((x, out), 1)
         return out
 
 
 # single layer
-class SingleLayer(nn.Module):
+class SingleLayer(nn.Layer):
     def __init__(self, nChannels, growthRate, use_dropout):
         super(SingleLayer, self).__init__()
-        self.bn1 = nn.BatchNorm2d(nChannels)
-        self.conv1 = nn.Conv2d(nChannels, growthRate, kernel_size=3, padding=1, bias=False)
+        self.bn1 = nn.BatchNorm2D(nChannels)
+        self.conv1 = nn.Conv2D(
+            nChannels, growthRate, kernel_size=3, padding=1, bias_attr=False
+        )
         self.use_dropout = use_dropout
         self.dropout = nn.Dropout(p=0.2)
 
     def forward(self, x):
-        out = self.conv1(F.relu(x, inplace=True))
+        out = self.conv1(F.relu(x))
         if self.use_dropout:
             out = self.dropout(out)
-        out = torch.cat((x, out), 1)
+        out = paddle.concat((x, out), 1)
         return out
 
 
 # transition layer
-class Transition(nn.Module):
+class Transition(nn.Layer):
     def __init__(self, nChannels, nOutChannels, use_dropout):
         super(Transition, self).__init__()
-        self.bn1 = nn.BatchNorm2d(nOutChannels)
-        self.conv1 = nn.Conv2d(nChannels, nOutChannels, kernel_size=1, bias=False)
+        self.bn1 = nn.BatchNorm2D(nOutChannels)
+        self.conv1 = nn.Conv2D(nChannels, nOutChannels, kernel_size=1, bias_attr=False)
         self.use_dropout = use_dropout
         self.dropout = nn.Dropout(p=0.2)
 
     def forward(self, x):
-        out = F.relu(self.bn1(self.conv1(x)), inplace=True)
+        out = F.relu(self.bn1(self.conv1(x)))
         if self.use_dropout:
             out = self.dropout(out)
         out = F.avg_pool2d(out, 2, ceil_mode=True)
         return out
 
 
-class DenseNet(nn.Module):
+class DenseNet(nn.Layer):
     def __init__(self, params):
         super(DenseNet, self).__init__()
         growthRate = params['densenet']['growthRate']
@@ -71,20 +75,33 @@ class DenseNet(nn.Module):
 
         nDenseBlocks = 16
         nChannels = 2 * growthRate
-        self.conv1 = nn.Conv2d(params['encoder']['input_channels'], nChannels, kernel_size=7, padding=3, stride=2, bias=False)
-        self.dense1 = self._make_dense(nChannels, growthRate, nDenseBlocks, bottleneck, use_dropout)
+        self.conv1 = nn.Conv2D(
+            params['encoder']['input_channels'],
+            nChannels,
+            kernel_size=7,
+            padding=3,
+            stride=2,
+            bias_attr=False,
+        )
+        self.dense1 = self._make_dense(
+            nChannels, growthRate, nDenseBlocks, bottleneck, use_dropout
+        )
         nChannels += nDenseBlocks * growthRate
         nOutChannels = int(math.floor(nChannels * reduction))
         self.trans1 = Transition(nChannels, nOutChannels, use_dropout)
 
         nChannels = nOutChannels
-        self.dense2 = self._make_dense(nChannels, growthRate, nDenseBlocks, bottleneck, use_dropout)
+        self.dense2 = self._make_dense(
+            nChannels, growthRate, nDenseBlocks, bottleneck, use_dropout
+        )
         nChannels += nDenseBlocks * growthRate
         nOutChannels = int(math.floor(nChannels * reduction))
         self.trans2 = Transition(nChannels, nOutChannels, use_dropout)
 
         nChannels = nOutChannels
-        self.dense3 = self._make_dense(nChannels, growthRate, nDenseBlocks, bottleneck, use_dropout)
+        self.dense3 = self._make_dense(
+            nChannels, growthRate, nDenseBlocks, bottleneck, use_dropout
+        )
 
     def _make_dense(self, nChannels, growthRate, nDenseBlocks, bottleneck, use_dropout):
         layers = []
@@ -98,7 +115,7 @@ class DenseNet(nn.Module):
 
     def forward(self, x):
         out = self.conv1(x)
-        out = F.relu(out, inplace=True)
+        out = F.relu(out)
         out = F.max_pool2d(out, 2, ceil_mode=True)
         out = self.dense1(out)
         out = self.trans1(out)
@@ -107,18 +124,23 @@ class DenseNet(nn.Module):
         out = self.dense3(out)
         return out
 
+
 if __name__ == '__main__':
-    from torchstat import stat
+    from paddle import summary
 
-    model = DenseNet(params={'encoder':
-                                 {'input_channels': 1},
-                             'densenet':
-                                 {'growthRate': 24,
-                                  'reduction': 0.5,
-                                  'bottleneck': True,
-                                  'use_dropout': True}})
-    stat(model, input_size=(1, 320, 320))
+    model = DenseNet(
+        params={
+            'encoder': {'input_channels': 1},
+            'densenet': {
+                'growthRate': 24,
+                'reduction': 0.5,
+                'bottleneck': True,
+                'use_dropout': True,
+            },
+        }
+    )
+    summary(model, input_size=(1, 1, 320, 320))
 
-    a = torch.zeros((1,1,320,320))
+    a = paddle.zeros((1, 1, 320, 320))
     out = model(a)
     print(out.shape)

@@ -1,7 +1,7 @@
 import os
 import cv2
 import argparse
-import torch
+import paddle
 import json
 from tqdm import tqdm
 
@@ -22,7 +22,12 @@ if not args.config:
 """加载config文件"""
 params = load_config(args.config)
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+devices = paddle.device.get_available_device()
+if len(devices) > 1:
+    device = devices[args.gpu + 1]
+else:
+    # use cpu
+    device = devices[0]
 params['device'] = device
 
 words = Words(params['word_path'])
@@ -31,7 +36,6 @@ params['struct_num'] = 7
 params['words'] = words
 
 model = Backbone(params)
-model = model.to(device)
 
 load_checkpoint(model, None, params['checkpoint'])
 
@@ -86,8 +90,9 @@ def convert(nodeid, gtd_list):
         return return_string
 
 
-with torch.no_grad():
+with paddle.no_grad():
     bad_case = {}
+    paddle.device.set_device(device)
     for item in tqdm(labels):
         name, *label = item.split()
         label = ' '.join(label)
@@ -95,11 +100,10 @@ with torch.no_grad():
             name = name.split('.')[0]
         img = cv2.imread(os.path.join(args.image_path, name + '_0.bmp'))
         img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        image = torch.Tensor(img) / 255
+        image = paddle.to_tensor(img) / 255
         image = image.unsqueeze(0).unsqueeze(0)
 
-        image_mask = torch.ones(image.shape)
-        image, image_mask = image.to(device), image_mask.to(device)
+        image_mask = paddle.ones(image.shape)
 
         prediction = model(image, image_mask)
 

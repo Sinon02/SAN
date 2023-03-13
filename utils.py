@@ -1,8 +1,10 @@
 import os
 import yaml
 import math
-import torch
+import paddle
+import random
 import numpy as np
+from dataset import get_dataset
 from difflib import SequenceMatcher
 
 
@@ -41,19 +43,59 @@ def load_config(yaml_path):
     return params
 
 
+def init(args):
+    """config"""
+    params = load_config(args.config)
+
+    """random seed"""
+    random.seed(params['seed'])
+    np.random.seed(params['seed'])
+    paddle.seed(params['seed'])
+
+    if args.gpu > 0:
+        device = f'gpu:{args.gpu}'
+    else:
+        # use cpu
+        device = 'cpu'
+    params['device'] = device
+
+    train_loader, eval_loader = get_dataset(params)
+    return params, train_loader, eval_loader
+
+
 def updata_lr(optimizer, current_epoch, current_step, steps, epoches, initial_lr):
     if current_epoch < 1:
         new_lr = initial_lr / steps * (current_step + 1)
 
     else:
-        new_lr = 0.5 * (1 + math.cos((current_step + 1 + (current_epoch - 1) * steps) * math.pi / (epoches * steps))) * initial_lr
+        new_lr = (
+            0.5
+            * (
+                1
+                + math.cos(
+                    (current_step + 1 + (current_epoch - 1) * steps)
+                    * math.pi
+                    / (epoches * steps)
+                )
+            )
+            * initial_lr
+        )
 
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = new_lr
+    optimizer.set_lr(new_lr)
 
 
-def save_checkpoint(model, optimizer, word_score, struct_score, ExpRate_score, epoch, optimizer_save=False, path='checkpoints', multi_gpu=False, local_rank=0):
-
+def save_checkpoint(
+    model,
+    optimizer,
+    word_score,
+    struct_score,
+    ExpRate_score,
+    epoch,
+    optimizer_save=False,
+    path='checkpoints',
+    multi_gpu=False,
+    local_rank=0,
+):
     filename = f'{os.path.join(path, model.name)}/{model.name}_WordRate-{word_score:.4f}_structRate-{struct_score:.4f}_ExpRate-{ExpRate_score:.4f}_{epoch}.pth'
 
     if optimizer_save:
@@ -62,25 +104,22 @@ def save_checkpoint(model, optimizer, word_score, struct_score, ExpRate_score, e
             'optimizer': optimizer.state_dict(),
         }
     else:
-        state = {
-            'model': model.state_dict()
-        }
+        state = {'model': model.state_dict()}
 
-    torch.save(state, filename)
+    paddle.save(state, filename)
     print(f'Save checkpoint: {filename}\n')
     return filename
 
 
 def load_checkpoint(model, optimizer, path):
-
-    state = torch.load(path, map_location='cpu')
+    state = paddle.load(path)
 
     if 'optimizer' in state:
-        optimizer.load_state_dict(state['optimizer'])
+        optimizer.set_state_dict(state['optimizer'])
     else:
         print(f'No optimizer in the pretrained model')
 
-    model.load_state_dict(state['model'])
+    model.set_state_dict(state['model'])
 
 
 class Meter:
@@ -99,24 +138,46 @@ class Meter:
         self.nums.append(num)
         self.exp_mean = self.alpha * self.exp_mean + (1 - self.alpha) * num
 
-def cal_score(probs, labels, mask):
 
+def cal_score(probs, labels, mask):
     batch_size = probs[0].shape[0]
     word_probs, struct_probs = probs
-    word_label, struct_label = labels[:,:,1], labels[:,:,4:]
-    struct_label = struct_label.contiguous().view(batch_size, -1)
+    word_label, struct_label = labels[:, :, 1], labels[:, :, 4:]
+    struct_label = struct_label.reshape((batch_size, -1))
     line_right = 0
     _, word_pred = word_probs.max(2)
 
-    struct_mask = mask[:,:,1]
-    struct_probs = struct_probs * struct_mask[:,:,None]
-    struct_probs = struct_probs.contiguous().view(batch_size, -1)
+    struct_mask = mask[:, :, 1]
+    struct_probs = struct_probs * struct_mask[:, :, None]
+    struct_probs = struct_probs.reshape((batch_size, -1))
     struct_pred = struct_probs > 0.5
 
-    word_scores = [SequenceMatcher(None, s1[:int(np.sum(s3))], s2[:int(np.sum(s3))], autojunk=False).ratio() * (len(s1[:int(np.sum(s3))]) + len(s2[:int(np.sum(s3))])) / len(s1[:int(np.sum(s3))]) / 2
-              for s1, s2, s3 in zip(word_label.cpu().detach().numpy(), word_pred.cpu().detach().numpy(), mask.cpu().detach().numpy())]
-    struct_scores = [SequenceMatcher(None, s1[:int(np.sum(s3))], s2[:int(np.sum(s3))], autojunk=False).ratio() * (len(s1[:int(np.sum(s3))]) + len(s2[:int(np.sum(s3))])) / len(s1[:int(np.sum(s3))]) / 2
-                   for s1, s2, s3 in zip(struct_label.cpu().detach().numpy(), struct_pred.cpu().detach().numpy(), mask.cpu().detach().numpy())]
+    word_scores = [
+        SequenceMatcher(
+            None, s1[: int(np.sum(s3))], s2[: int(np.sum(s3))], autojunk=False
+        ).ratio()
+        * (len(s1[: int(np.sum(s3))]) + len(s2[: int(np.sum(s3))]))
+        / len(s1[: int(np.sum(s3))])
+        / 2
+        for s1, s2, s3 in zip(
+            word_label.cpu().detach().numpy(),
+            word_pred.cpu().detach().numpy(),
+            mask.cpu().detach().numpy(),
+        )
+    ]
+    struct_scores = [
+        SequenceMatcher(
+            None, s1[: int(np.sum(s3))], s2[: int(np.sum(s3))], autojunk=False
+        ).ratio()
+        * (len(s1[: int(np.sum(s3))]) + len(s2[: int(np.sum(s3))]))
+        / len(s1[: int(np.sum(s3))])
+        / 2
+        for s1, s2, s3 in zip(
+            struct_label.cpu().detach().numpy(),
+            struct_pred.cpu().detach().numpy(),
+            mask.cpu().detach().numpy(),
+        )
+    ]
 
     batch_size = len(word_scores) if word_probs is not None else len(struct_scores)
 
@@ -133,4 +194,3 @@ def cal_score(probs, labels, mask):
     word_scores = np.mean(word_scores) if word_probs is not None else 0
     struct_scores = np.mean(struct_scores) if struct_probs is not None else 0
     return word_scores, struct_scores, ExpRate
-

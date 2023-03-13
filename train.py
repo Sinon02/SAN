@@ -1,14 +1,12 @@
 import os
 import time
 import argparse
-import random
 import paddle
 from paddle import nn
 import numpy as np
 from tensorboardX import SummaryWriter
 
-from utils import load_config, save_checkpoint, load_checkpoint
-from dataset import get_dataset
+from utils import save_checkpoint, load_checkpoint, init
 from models.Backbone import Backbone
 from training import train, eval
 
@@ -17,30 +15,14 @@ parser.add_argument(
     '--config', default='config.yaml', type=str, help='path to config file'
 )
 parser.add_argument('--check', action='store_true', help='only for code check')
-parser.add_argument('--gpu', type=int, help='Use which GPU to train model', default=0)
+parser.add_argument('--gpu', type=int, help='Use which GPU to train model, -1 means use CPU', default=-1)
 args = parser.parse_args()
 
 if not args.config:
     print('please provide config yaml')
     exit(-1)
 
-"""config"""
-params = load_config(args.config)
-
-"""random seed"""
-random.seed(params['seed'])
-np.random.seed(params['seed'])
-paddle.seed(params['seed'])
-
-devices = paddle.device.get_available_device()
-if len(devices) > 1:
-    device = devices[args.gpu + 1]
-else:
-    # use cpu
-    device = devices[0]
-params['device'] = device
-
-train_loader, eval_loader = get_dataset(params)
+params, train_loader, eval_loader = init(args)
 
 model = Backbone(params)
 now = time.strftime("%Y-%m-%d-%H-%M", time.localtime())

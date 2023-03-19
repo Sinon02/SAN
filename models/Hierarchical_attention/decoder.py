@@ -99,11 +99,13 @@ class SAN_decoder(nn.Layer):
                 word_embedding = self.embedding(labels[:, i, 3])
 
                 # word
-                word_hidden_first = self.word_input_gru(word_embedding, parent_hidden)
+                word_hidden_first = self.word_input_gru(word_embedding, parent_hidden)[
+                    0
+                ]
                 word_context_vec, word_alpha, word_alpha_sum = self.word_attention(
                     cnn_features, word_hidden_first, word_alpha_sum, images_mask
                 )
-                hidden = self.word_out_gru(word_context_vec, word_hidden_first)
+                hidden = self.word_out_gru(word_context_vec, word_hidden_first)[0]
 
                 if i != num_steps - 1:
                     parent_hiddens[
@@ -133,11 +135,11 @@ class SAN_decoder(nn.Layer):
                 c2p_hidden_first = self.c2p_input_gru(
                     paddle.concat((child_embedding, relation_embedding), axis=1),
                     c2p_hidden,
-                )
+                )[0]
                 c2p_context_vec, c2p_alpha, c2p_alpha_sum = self.c2p_attention(
                     cnn_features, c2p_hidden_first, c2p_alpha_sum, images_mask
                 )
-                c2p_hidden = self.c2p_out_gru(word_context_vec, word_hidden_first)
+                c2p_hidden = self.c2p_out_gru(word_context_vec, word_hidden_first)[0]
 
                 c2p_state = self.c2p_state_weight(c2p_hidden)
                 c2p_weighted_word = self.c2p_word_weight(child_embedding)
@@ -182,11 +184,13 @@ class SAN_decoder(nn.Layer):
             parent_hidden = self.init_hidden(cnn_features, images_mask)
             for i in range(num_steps):
                 # word
-                word_hidden_first = self.word_input_gru(word_embedding, parent_hidden)
+                word_hidden_first = self.word_input_gru(word_embedding, parent_hidden)[
+                    0
+                ]
                 word_context_vec, word_alpha, word_alpha_sum = self.word_attention(
                     cnn_features, word_hidden_first, word_alpha_sum, images_mask
                 )
-                hidden = self.word_out_gru(word_context_vec, word_hidden_first)
+                hidden = self.word_out_gru(word_context_vec, word_hidden_first)[0]
 
                 current_state = self.word_state_weight(hidden)
                 word_weighted_embedding = self.word_embedding_weight(word_embedding)

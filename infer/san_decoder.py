@@ -91,11 +91,11 @@ class SAN_decoder(nn.Layer):
 
             while len(prediction) < 400:
                 # word
-                word_hidden_first = self.word_input_gru(word_embedding, parent_hidden)
+                word_hidden_first = self.word_input_gru(word_embedding, parent_hidden)[0]
                 word_context_vec, word_alpha, word_alpha_sum = self.word_attention(
                     cnn_features, word_hidden_first, word_alpha_sum, images_mask
                 )
-                hidden = self.word_out_gru(word_context_vec, word_hidden_first)
+                hidden = self.word_out_gru(word_context_vec, word_hidden_first)[0]
 
                 current_state = self.word_state_weight(hidden)
                 word_weighted_embedding = self.word_embedding_weight(word_embedding)

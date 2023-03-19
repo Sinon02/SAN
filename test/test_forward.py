@@ -2,6 +2,7 @@ import argparse
 import torch
 import paddle
 import numpy as np
+import random
 from reprod_log import ReprodDiffHelper
 from reprod_log import ReprodLogger
 
@@ -15,10 +16,14 @@ from dataset import get_dataset
 
 
 
-def test_forward(params):
+def test_forward(params, test_data):
     device = "cpu"  # you can also set it as "cpu"
     torch_device = torch.device("cuda:0" if "gpu" in device else "cpu")
     paddle.set_device(device)
+
+    # get inference data
+    test_paddle_data = test_data
+    test_torch_data = [torch.Tensor(item.numpy()).to(torch_device) for item in test_data]
 
     # load paddle model
     paddle_model = Backbone_paddle(params)
@@ -34,19 +39,15 @@ def test_forward(params):
     torch_model.load_state_dict(torch_state_dict['model'])
     torch_model.to(torch_device)
 
-    # load data
-    inputs = np.random.random((1, 1, 320, 320))
 
     # save the paddle output
     reprod_logger = ReprodLogger()
-    paddle_out = paddle_model(paddle.to_tensor(inputs, dtype="float32"))
+    paddle_out = paddle_model(*test_paddle_data)
     reprod_logger.add("logits", paddle_out.cpu().detach().numpy())
     reprod_logger.save("./result/forward_paddle.npy")
 
     # save the torch output
-    torch_out = torch_model(
-        torch.tensor(
-            inputs, dtype=torch.float32).to(torch_device))
+    torch_out = torch_model(*test_torch_data)
     reprod_logger.add("logits", torch_out.cpu().detach().numpy())
     reprod_logger.save("./result/forward_ref.npy")
 
@@ -62,7 +63,11 @@ if __name__ == "__main__":
 
     params, train_loader, eval_loader = init(args)
 
-    test_forward(params)
+    train_dataset = train_loader.dataset
+    test_data = next(train_loader())
+
+
+    test_forward(params, test_data)
 
     # load data
     diff_helper = ReprodDiffHelper()

@@ -93,8 +93,8 @@ class SAN_decoder(nn.Layer):
                 parent_ids = labels[:, i, 2].clone()
                 for item in range(len(parent_ids)):
                     parent_ids[item] = parent_ids[item] * batch_size + item
-                parent_hidden = parent_hiddens[parent_ids, :]
-                word_alpha_sum = word_alpha_sums[parent_ids, :, :, :]
+                parent_hidden = parent_hiddens.index_select(parent_ids, axis=0)
+                word_alpha_sum = word_alpha_sums.index_select(parent_ids, axis=0)
 
                 word_embedding = self.embedding(labels[:, i, 3])
 

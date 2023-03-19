@@ -25,14 +25,14 @@ class Attention(nn.Layer):
     def forward(self, cnn_features, hidden, alpha_sum, image_mask=None):
         query = self.hidden_weight(hidden)
         alpha_sum_trans = self.attention_conv(alpha_sum)
-        coverage_alpha = self.attention_weight(alpha_sum_trans.transpose(0, 2, 3, 1))
+        coverage_alpha = self.attention_weight(alpha_sum_trans.transpose((0, 2, 3, 1)))
 
         cnn_features_trans = self.encoder_feature_conv(cnn_features)
 
         alpha_score = paddle.tanh(
             query[:, None, None, :]
             + coverage_alpha
-            + cnn_features_trans.transpose(0, 2, 3, 1)
+            + cnn_features_trans.transpose((0, 2, 3, 1))
         )
         energy = self.alpha_convert(alpha_score)
         energy = energy - energy.max()

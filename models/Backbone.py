@@ -73,7 +73,7 @@ class Backbone(nn.Layer):
         paddle.device.set_device(self.params['device'])
         new_child_alphas = paddle.zeros((batch_size, steps, height, width))
         new_child_alphas[:, 1:, :, :] = child_alphas[:, :-1, :, :].clone()
-        new_child_alphas = new_child_alphas.view((batch_size * steps, height, width))
+        new_child_alphas = new_child_alphas.reshape((batch_size * steps, height, width))
         parent_ids = labels[:, :, 2] + steps * paddle.arange(batch_size)[:, None]
 
         new_child_alphas = new_child_alphas[parent_ids]

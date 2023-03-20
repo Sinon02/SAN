@@ -207,14 +207,14 @@ class SAN_decoder(nn.Layer):
 
                 word_prob = self.word_convert(word_out_state)
 
-                word_probs[0][i, :] = word_prob
+                word_probs[0, i, :] = word_prob
                 word_alphas[:, i] = word_alpha
 
                 _, word = word_prob.max(1)
 
                 if word.item() == 2:
                     struct_prob = self.struct_convert(word_out_state)
-                    struct_probs[0][i, :] = struct_prob
+                    struct_probs[0, i, :] = struct_prob
 
                     structs = F.sigmoid(struct_prob)
 

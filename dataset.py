@@ -51,7 +51,7 @@ class HYBTr_Dataset(Dataset):
         struct = paddle.zeros((len(struct_label), len(struct_label[0])), dtype='int64')
         for i in range(len(struct_label)):
             for j in range(len(struct_label[0])):
-                struct[i][j] = struct_label[i][j] != 'None'
+                struct[i, j] = struct_label[i][j] != 'None'
 
         label = paddle.concat(
             [
@@ -94,15 +94,15 @@ class HYBTr_Dataset(Dataset):
 
         for i in range(len(proper_items)):
             _, h, w = proper_items[i][0].shape
-            images[i][:, :h, :w] = proper_items[i][0]
-            image_masks[i][:, :h, :w] = 1
+            images[i, :, :h, :w] = proper_items[i][0]
+            image_masks[i, :, :h, :w] = 1
 
             l = proper_items[i][1].shape[0]
-            labels[i][:l, :] = proper_items[i][1]
-            labels_masks[i][:l, 0] = 1
+            labels[i, :l, :] = proper_items[i][1]
+            labels_masks[i, :l, 0] = 1
 
             for j in range(proper_items[i][1].shape[0]):
-                labels_masks[i][j][1] = proper_items[i][1][j][4:].sum() != 0
+                labels_masks[i, j, 1] = proper_items[i][1][j][4:].sum() != 0
 
         return images, image_masks, labels, labels_masks
 

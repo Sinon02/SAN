@@ -22,7 +22,7 @@ def torch2paddle():
         'c2p_context_weight',
         'c2p_convert',
         'word_embedding_weight',
-        'word_context_weight'
+        'word_context_weight',
     ]
     paddle_state_dict = {}
     for k in model_state_dict:
@@ -43,7 +43,7 @@ def torch2paddle():
             print(k)
         else:
             paddle_state_dict[k] = v
-    paddle.save(paddle_state_dict, paddle_path)
+    paddle.save({'model': paddle_state_dict}, paddle_path)
 
 
 if __name__ == "__main__":

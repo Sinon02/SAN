@@ -145,7 +145,7 @@ def cal_score(probs, labels, mask):
     word_label, struct_label = labels[:, :, 1], labels[:, :, 4:]
     struct_label = struct_label.reshape((batch_size, -1))
     line_right = 0
-    _, word_pred = word_probs.max(2)
+    word_pred = word_probs.argmax(2)
 
     struct_mask = mask[:, :, 1]
     struct_probs = struct_probs * struct_mask[:, :, None]

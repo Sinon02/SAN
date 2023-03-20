@@ -112,7 +112,7 @@ class SAN_decoder(nn.Layer):
 
                 word_prob = self.word_convert(word_out_state)
                 p_word = word
-                _, word = word_prob.max(1)
+                word = word_prob.argmax(1)
                 if word.item() and word.item() != 2:
                     cid += 1
                     p_id = cid

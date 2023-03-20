@@ -210,7 +210,7 @@ class SAN_decoder(nn.Layer):
                 word_probs[0, i, :] = word_prob
                 word_alphas[:, i] = word_alpha
 
-                _, word = word_prob.max(1)
+                word = word_prob.argmax(1)
 
                 if word.item() == 2:
                     struct_prob = self.struct_convert(word_out_state)

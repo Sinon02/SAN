@@ -7,12 +7,12 @@ from reprod_log import ReprodDiffHelper
 from reprod_log import ReprodLogger
 
 import sys, os
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from models.Backbone import Backbone as Backbone_paddle
 from models_torch.Backbone import Backbone as Backbone_torch
 from utils import init
-
 
 
 def test_forward(params, test_data):
@@ -35,16 +35,17 @@ def test_forward(params, test_data):
     paddle_model = Backbone_paddle(params)
     paddle_model.eval()
     paddle_state_dict = paddle.load("./checkpoints/SAN_decoder/best_paddle.pdparams")
-    paddle_model.set_dict(paddle_state_dict)
+    paddle_model.set_dict(paddle_state_dict['model'])
 
     # load torch model
     torch_model = Backbone_torch(params)
     torch_model.eval()
 
-    torch_state_dict = torch.load("./checkpoints/SAN_decoder/best.pth", map_location=torch_device)
+    torch_state_dict = torch.load(
+        "./checkpoints/SAN_decoder/best.pth", map_location=torch_device
+    )
     torch_model.load_state_dict(torch_state_dict['model'])
     torch_model.to(torch_device)
-
 
     # save the paddle output
     reprod_logger = ReprodLogger()
@@ -70,14 +71,18 @@ if __name__ == "__main__":
         '--config', default='config.yaml', type=str, help='path to config file'
     )
     parser.add_argument('--check', action='store_true', help='only for code check')
-    parser.add_argument('--gpu', type=int, help='Use which GPU to train model, -1 means use CPU', default=-1)
+    parser.add_argument(
+        '--gpu',
+        type=int,
+        help='Use which GPU to train model, -1 means use CPU',
+        default=-1,
+    )
     args = parser.parse_args()
 
     params, train_loader, eval_loader = init(args)
 
-    train_dataset = train_loader.dataset
-    test_data = next(train_loader())
-
+    for i in range(random.randint(1, 500)):
+        test_data = next(train_loader())
 
     test_forward(params, test_data)
 
@@ -88,5 +93,4 @@ if __name__ == "__main__":
 
     # compare result and produce log
     diff_helper.compare_info(torch_info, paddle_info)
-    diff_helper.report(
-        path="./result/log/forward_diff.log", diff_threshold=1e-5)
+    diff_helper.report(path="./result/log/forward_diff.log", diff_threshold=1e-5)

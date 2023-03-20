@@ -12,7 +12,6 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from models.Backbone import Backbone as Backbone_paddle
 from models_torch.Backbone import Backbone as Backbone_torch
 from utils import init
-from dataset import get_dataset
 
 
 
@@ -23,7 +22,14 @@ def test_forward(params, test_data):
 
     # get inference data
     test_paddle_data = test_data
-    test_torch_data = [torch.Tensor(item.numpy()).to(torch_device) for item in test_data]
+    test_torch_data = []
+    for item in test_data:
+        if str(item.dtype) == 'paddle.int64':
+            test_torch_data.append(torch.LongTensor(item.numpy()).to(torch_device))
+        elif str(item.dtype) == 'paddle.bool':
+            test_torch_data.append(torch.Tensor(item.numpy()).bool().to(torch_device))
+        else:
+            test_torch_data.append(torch.Tensor(item.numpy()).to(torch_device))
 
     # load paddle model
     paddle_model = Backbone_paddle(params)
@@ -43,12 +49,18 @@ def test_forward(params, test_data):
     # save the paddle output
     reprod_logger = ReprodLogger()
     paddle_out = paddle_model(*test_paddle_data)
-    reprod_logger.add("logits", paddle_out.cpu().detach().numpy())
+    reprod_logger.add("word_probs", paddle_out[0][0].cpu().detach().numpy())
+    reprod_logger.add("struct_probs", paddle_out[0][1].cpu().detach().numpy())
+    reprod_logger.add("word_average_loss", paddle_out[1][0].cpu().detach().numpy())
+    reprod_logger.add("struct_average_loss", paddle_out[1][1].cpu().detach().numpy())
     reprod_logger.save("./result/forward_paddle.npy")
 
     # save the torch output
     torch_out = torch_model(*test_torch_data)
-    reprod_logger.add("logits", torch_out.cpu().detach().numpy())
+    reprod_logger.add("word_probs", torch_out[0][0].cpu().detach().numpy())
+    reprod_logger.add("struct_probs", torch_out[0][1].cpu().detach().numpy())
+    reprod_logger.add("word_average_loss", torch_out[1][0].cpu().detach().numpy())
+    reprod_logger.add("struct_average_loss", torch_out[1][1].cpu().detach().numpy())
     reprod_logger.save("./result/forward_ref.npy")
 
 

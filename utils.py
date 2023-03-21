@@ -52,14 +52,17 @@ def init(args):
     np.random.seed(params['seed'])
     paddle.seed(params['seed'])
 
-    if args.gpu > 0:
-        device = f'gpu:{args.gpu}'
+    if args.multi_gpu:
+        device = paddle.device.get_device()
     else:
-        # use cpu
-        device = 'cpu'
+        if args.gpu > 0:
+            device = f'gpu:{args.gpu}'
+        else:
+            # use cpu
+            device = 'cpu'
     params['device'] = device
 
-    train_loader, eval_loader = get_dataset(params)
+    train_loader, eval_loader = get_dataset(args, params)
     return params, train_loader, eval_loader
 
 

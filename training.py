@@ -31,7 +31,6 @@ def train(params, model, optimizer, epoch, train_loader, writer=None):
                     params['epoches'],
                     params['lr'],
                 )
-            optimizer.zero_grad()
 
             probs, loss = model(images, image_masks, labels, label_masks)
 
@@ -41,6 +40,7 @@ def train(params, model, optimizer, epoch, train_loader, writer=None):
             loss.backward()
 
             optimizer.step()
+            optimizer.clear_grad()
 
             loss_meter.add(loss.item())
 
@@ -62,14 +62,12 @@ def train(params, model, optimizer, epoch, train_loader, writer=None):
                 writer.add_scalar('train/kl_loss', kl_loss.item(), current_step)
                 writer.add_scalar('train/structRate', structRate, current_step)
                 writer.add_scalar('train/ExpRate', ExpRate, current_step)
-                writer.add_scalar(
-                    'train/lr', optimizer.get_lr(), current_step
-                )
+                writer.add_scalar('train/lr', optimizer.get_lr(), current_step)
 
             pbar.set_description(
-                f'Epoch: {epoch+1} train loss: {loss.item():.4f} word loss: {word_loss:.4f} '
-                f'struct loss: {struct_loss:.4f} parent loss: {parent_loss:.4f} '
-                f'kl loss: {kl_loss:.4f} WordRate: {word_right / length:.4f} '
+                f'Epoch: {epoch+1} train loss: {loss.item():.4f} word loss: {word_loss.item():.4f} '
+                f'struct loss: {struct_loss.item():.4f} parent loss: {parent_loss.item():.4f} '
+                f'kl loss: {kl_loss.item():.4f} WordRate: {word_right / length:.4f} '
                 f'structRate: {struct_right / length:.4f} ExpRate: {exp_right / cal_num:.4f}'
             )
 
@@ -134,8 +132,8 @@ def eval(params, model, epoch, eval_loader, writer=None):
                 writer.add_scalar('eval/ExpRate', ExpRate, current_step)
 
             pbar.set_description(
-                f'Epoch: {epoch + 1} eval loss: {loss.item():.4f} word loss: {word_loss:.4f} '
-                f'struct loss: {struct_loss:.4f} WordRate: {word_right / length:.4f} '
+                f'Epoch: {epoch + 1} eval loss: {loss.item():.4f} word loss: {word_loss.item():.4f} '
+                f'struct loss: {struct_loss.item():.4f} WordRate: {word_right / length:.4f} '
                 f'structRate: {struct_right / length:.4f} ExpRate: {exp_right / cal_num:.4f}'
             )
 

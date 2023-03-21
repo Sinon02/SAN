@@ -24,6 +24,9 @@ if __name__ == '__main__':
         help='Use which GPU to train model, -1 means use CPU',
         default=-1,
     )
+    parser.add_argument(
+        '--multi_gpu', help='whether use multi gpu', action='store_true'
+    )
     args = parser.parse_args()
 
     if not args.config:

@@ -3,6 +3,7 @@ import time
 import argparse
 import paddle
 from paddle import nn
+import paddle.distributed as dist
 import numpy as np
 from tensorboardX import SummaryWriter
 
@@ -16,6 +17,7 @@ parser.add_argument(
 )
 parser.add_argument('--check', action='store_true', help='only for code check')
 parser.add_argument('--gpu', type=int, help='Use which GPU to train model, -1 means use CPU', default=-1)
+parser.add_argument('--multi_gpu', help='whether use multi gpu', action='store_true')
 args = parser.parse_args()
 
 if not args.config:
@@ -23,8 +25,13 @@ if not args.config:
     exit(-1)
 
 params, train_loader, eval_loader = init(args)
+if args.multi_gpu:
+    dist.init_parallel_env()
 
 model = Backbone(params)
+if args.multi_gpu:
+    model = paddle.DataParallel(model)
+
 now = time.strftime("%Y-%m-%d-%H-%M", time.localtime())
 model.name = (
     f'{params["experiment"]}_{now}_Encoder-{params["encoder"]["net"]}_Decoder-{params["decoder"]["net"]}_'
@@ -64,7 +71,7 @@ for epoch in range(params['epoches']):
     train_loss, train_word_score, train_node_score, train_expRate = train(
         params, model, optimizer, epoch, train_loader, writer=writer
     )
-    if epoch > 150:
+    if epoch > 20:
         eval_loss, eval_word_score, eval_node_score, eval_expRate = eval(
             params, model, epoch, eval_loader, writer=writer
         )

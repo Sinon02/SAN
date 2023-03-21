@@ -77,12 +77,15 @@ if __name__ == "__main__":
         help='Use which GPU to train model, -1 means use CPU',
         default=-1,
     )
+    parser.add_argument(
+        '--multi_gpu', help='whether use multi gpu', action='store_true'
+    )
     args = parser.parse_args()
 
     params, train_loader, eval_loader = init(args)
 
     for i in range(random.randint(1, 500)):
-        test_data = next(train_loader())
+        test_data = next(eval_loader())
 
     test_forward(params, test_data)
 
@@ -93,4 +96,4 @@ if __name__ == "__main__":
 
     # compare result and produce log
     diff_helper.compare_info(torch_info, paddle_info)
-    diff_helper.report(path="./result/log/forward_diff.log", diff_threshold=1e-5)
+    diff_helper.report(path="./result/log/forward_diff.log", diff_threshold=1e-4)

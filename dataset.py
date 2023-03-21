@@ -1,5 +1,11 @@
 import pickle as pkl
-from paddle.io import Dataset, BatchSampler, DataLoader, RandomSampler
+from paddle.io import (
+    Dataset,
+    BatchSampler,
+    DataLoader,
+    RandomSampler,
+    DistributedBatchSampler,
+)
 import paddle
 
 # from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
@@ -107,7 +113,7 @@ class HYBTr_Dataset(Dataset):
         return images, image_masks, labels, labels_masks
 
 
-def get_dataset(params):
+def get_dataset(args, params):
     words = Words(params['word_path'])
 
     params['word_num'] = len(words)
@@ -125,13 +131,19 @@ def get_dataset(params):
         params, params['eval_image_path'], params['eval_label_path'], words
     )
 
-    train_sampler = RandomSampler(train_dataset)
-    eval_sampler = RandomSampler(eval_dataset)
+    if args.multi_gpu:
+        train_batch_sampler = DistributedBatchSampler(
+            train_dataset, batch_size=params['batch_size'], shuffle=True
+        )
+        eval_batch_sampler = DistributedBatchSampler(eval_dataset, batch_size=1)
+    else:
+        train_sampler = RandomSampler(train_dataset)
+        eval_sampler = RandomSampler(eval_dataset)
 
-    train_batch_sampler = BatchSampler(
-        sampler=train_sampler, batch_size=params['batch_size']
-    )
-    eval_batch_sampler = BatchSampler(sampler=eval_sampler, batch_size=1)
+        train_batch_sampler = BatchSampler(
+            sampler=train_sampler, batch_size=params['batch_size']
+        )
+        eval_batch_sampler = BatchSampler(sampler=eval_sampler, batch_size=1)
 
     train_loader = DataLoader(
         train_dataset,

@@ -207,7 +207,7 @@ class SAN_decoder(nn.Layer):
 
                 word_prob = self.word_convert(word_out_state)
 
-                word_probs[0, i, :] = word_prob
+                word_probs[0, i, :] = word_prob.reshape([-1])
                 word_alphas[:, i] = word_alpha
 
                 word = word_prob.argmax(1)

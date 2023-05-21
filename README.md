@@ -48,7 +48,21 @@ Results on CROHME 2014
 | Paper  | 56.2    | 72.6 | 79.2 |
 | Paddle | 55.3    | 72.6 | 79.7 |
 
-因为算力点数限制，只调参到与论文中给出的指标相同水平，可以更加精细地调参
+因为算力点数限制，只调参到与论文中给出的指标相同水平，可以更加精细地调参。
+
+### Test
+前向、反向测试均在test文件夹中。
+
+forward
+```python
+python test/test_forward.py
+```
+
+backword
+
+```python
+python test/test_backward.py
+```
 
 ### Citation
 

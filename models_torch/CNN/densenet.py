@@ -107,18 +107,18 @@ class DenseNet(nn.Module):
         out = self.dense3(out)
         return out
 
-if __name__ == '__main__':
-    # from torchstat import stat
+# if __name__ == '__main__':
+#     # from torchstat import stat
 
-    model = DenseNet(params={'encoder':
-                                 {'input_channels': 1},
-                             'densenet':
-                                 {'growthRate': 24,
-                                  'reduction': 0.5,
-                                  'bottleneck': True,
-                                  'use_dropout': True}})
-    # stat(model, input_size=(1, 320, 320))
+#     model = DenseNet(params={'encoder':
+#                                  {'input_channels': 1},
+#                              'densenet':
+#                                  {'growthRate': 24,
+#                                   'reduction': 0.5,
+#                                   'bottleneck': True,
+#                                   'use_dropout': True}})
+#     # stat(model, input_size=(1, 320, 320))
 
-    a = torch.zeros((1,1,320,320))
-    out = model(a)
-    print(out.shape)
+#     a = torch.zeros((1,1,320,320))
+#     out = model(a)
+#     print(out.shape)

@@ -2,16 +2,17 @@
 experiment: "SAN"
 
 # 随机种子
-seed: 20200814
+seed: 20230518
 
 # 训练参数
-epoches: 200
-batch_size: 8
+epoches: 350
+batch_size: 5
 workers: 0
-optimizer: Adadelta
-lr: 1
+optimizer: Momentum
+lr: 0.05
 lr_decay: cosine
-step_ratio: 10
+step_ratio: 20
+step_decay: 2
 eps: 1e-6
 weight_decay: 1e-4
 beta: 0.9
@@ -70,6 +71,7 @@ optimizer_save: False
 checkpoint_dir: 'checkpoints'
 finetune: False
 checkpoint: ""
+#checkpoint: "checkpoints/SAN_2023-04-24-14-27_Encoder-DenseNet_Decoder-SAN_decoder_max_size-320-1600/SAN_2023-04-24-14-27_Encoder-DenseNet_Decoder-SAN_decoder_max_size-320-1600_WordRate-0.7371_structRate-0.9706_ExpRate-0.3398_52.pth"
 
 # tensorboard路径
 log_dir: 'logs'

@@ -70,6 +70,7 @@ class SAN_decoder(nn.Layer):
         paddle.device.set_device(self.device)
         batch_size, num_steps, _ = labels.shape
         height, width = cnn_features.shape[2:]
+        # reprod_logger.add(f"cnn_features", cnn_features.cpu().detach().numpy())
         word_probs = paddle.zeros((batch_size, num_steps, self.word_num))
         struct_probs = paddle.zeros((batch_size, num_steps, self.struct_num))
         c2p_probs = paddle.zeros((batch_size, num_steps, self.word_num))
@@ -100,12 +101,16 @@ class SAN_decoder(nn.Layer):
 
                 # word
                 word_hidden_first = self.word_input_gru(word_embedding, parent_hidden)[
-                    0
+                    1
                 ]
                 word_context_vec, word_alpha, word_alpha_sum = self.word_attention(
                     cnn_features, word_hidden_first, word_alpha_sum, images_mask
                 )
-                hidden = self.word_out_gru(word_context_vec, word_hidden_first)[0]
+                hidden = self.word_out_gru(word_context_vec, word_hidden_first)[1]
+                # reprod_logger.add(f"hidden_{i}", hidden.cpu().detach().numpy())
+                # reprod_logger.add(f"word_hidden_first_{i}", word_hidden_first.cpu().detach().numpy())
+                # reprod_logger.add(f"word_embedding_{i}", word_embedding.cpu().detach().numpy())
+                # reprod_logger.add(f"word_context_vec_{i}", word_context_vec.cpu().detach().numpy())
 
                 if i != num_steps - 1:
                     parent_hiddens[
@@ -135,11 +140,11 @@ class SAN_decoder(nn.Layer):
                 c2p_hidden_first = self.c2p_input_gru(
                     paddle.concat((child_embedding, relation_embedding), axis=1),
                     c2p_hidden,
-                )[0]
+                )[1]
                 c2p_context_vec, c2p_alpha, c2p_alpha_sum = self.c2p_attention(
                     cnn_features, c2p_hidden_first, c2p_alpha_sum, images_mask
                 )
-                c2p_hidden = self.c2p_out_gru(word_context_vec, word_hidden_first)[0]
+                c2p_hidden = self.c2p_out_gru(word_context_vec, word_hidden_first)[1]
 
                 c2p_state = self.c2p_state_weight(c2p_hidden)
                 c2p_weighted_word = self.c2p_word_weight(child_embedding)
@@ -160,7 +165,7 @@ class SAN_decoder(nn.Layer):
                     word_out_state = (
                         current_state + word_weighted_embedding + word_context_weighted
                     )
-                    c2p_out_state = self.dropout(
+                    c2p_out_state = (
                         c2p_state
                         + c2p_weighted_word
                         + c2p_weighted_relation
@@ -185,12 +190,13 @@ class SAN_decoder(nn.Layer):
             for i in range(num_steps):
                 # word
                 word_hidden_first = self.word_input_gru(word_embedding, parent_hidden)[
-                    0
+                    1
                 ]
                 word_context_vec, word_alpha, word_alpha_sum = self.word_attention(
                     cnn_features, word_hidden_first, word_alpha_sum, images_mask
                 )
-                hidden = self.word_out_gru(word_context_vec, word_hidden_first)[0]
+
+                hidden = self.word_out_gru(word_context_vec, word_hidden_first)[1]
 
                 current_state = self.word_state_weight(hidden)
                 word_weighted_embedding = self.word_embedding_weight(word_embedding)
@@ -204,6 +210,7 @@ class SAN_decoder(nn.Layer):
                     word_out_state = (
                         current_state + word_weighted_embedding + word_context_weighted
                     )
+
 
                 word_prob = self.word_convert(word_out_state)
 
@@ -231,7 +238,7 @@ class SAN_decoder(nn.Layer):
                         paddle.to_tensor([word], dtype='int64')
                     )
 
-                elif word == 0:
+                elif word.item() == 0:
                     if len(struct_list) == 0:
                         break
                     word, parent_hidden, word_alpha_sum = struct_list.pop()
@@ -246,9 +253,9 @@ class SAN_decoder(nn.Layer):
         return word_probs, struct_probs, word_alphas, None, c2p_probs, c2p_alphas
 
     def init_hidden(self, features, feature_mask):
-        average = (features * feature_mask).sum(-1).sum(-1) / feature_mask.sum(-1).sum(
+        average = (features * feature_mask.cast('float32')).sum(-1).sum(-1) / feature_mask.sum(-1).sum(
             -1
-        )
+        ).cast('float32')
         average = self.init_weight(average)
 
         return paddle.tanh(average)

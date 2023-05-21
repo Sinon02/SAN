@@ -61,7 +61,7 @@ class Transition(nn.Layer):
         out = F.relu(self.bn1(self.conv1(x)))
         if self.use_dropout:
             out = self.dropout(out)
-        out = F.avg_pool2d(out, 2, ceil_mode=True)
+        out = F.avg_pool2d(out, 2, ceil_mode=True, exclusive=False)
         return out
 
 
@@ -125,22 +125,22 @@ class DenseNet(nn.Layer):
         return out
 
 
-if __name__ == '__main__':
-    from paddle import summary
+# if __name__ == '__main__':
+#     from paddle import summary
 
-    model = DenseNet(
-        params={
-            'encoder': {'input_channels': 1},
-            'densenet': {
-                'growthRate': 24,
-                'reduction': 0.5,
-                'bottleneck': True,
-                'use_dropout': True,
-            },
-        }
-    )
-    summary(model, input_size=(1, 1, 320, 320))
+#     model = DenseNet(
+#         params={
+#             'encoder': {'input_channels': 1},
+#             'densenet': {
+#                 'growthRate': 24,
+#                 'reduction': 0.5,
+#                 'bottleneck': True,
+#                 'use_dropout': True,
+#             },
+#         }
+#     )
+#     summary(model, input_size=(1, 1, 320, 320))
 
-    a = paddle.zeros((1, 1, 320, 320))
-    out = model(a)
-    print(out.shape)
+#     a = paddle.zeros((1, 1, 320, 320))
+#     out = model(a)
+#     print(out.shape)

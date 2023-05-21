@@ -135,7 +135,8 @@ def get_dataset(args, params):
         train_batch_sampler = DistributedBatchSampler(
             train_dataset, batch_size=params['batch_size'], shuffle=True
         )
-        eval_batch_sampler = DistributedBatchSampler(eval_dataset, batch_size=1)
+        eval_sampler = RandomSampler(eval_dataset)
+        eval_batch_sampler = BatchSampler(eval_dataset, batch_size=1)
     else:
         train_sampler = RandomSampler(train_dataset)
         eval_sampler = RandomSampler(eval_dataset)
@@ -150,12 +151,16 @@ def get_dataset(args, params):
         batch_sampler=train_batch_sampler,
         num_workers=params['workers'],
         collate_fn=train_dataset.collate_fn,
+        #places=paddle.CPUPlace(),
+        #use_buffer_reader=False
     )
     eval_loader = DataLoader(
         eval_dataset,
         batch_sampler=eval_batch_sampler,
         num_workers=params['workers'],
         collate_fn=eval_dataset.collate_fn,
+        #places=paddle.CPUPlace(),
+        #use_buffer_reader=False
     )
 
     print(

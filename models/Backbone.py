@@ -23,6 +23,7 @@ class Backbone(nn.Layer):
 
     def forward(self, images, images_mask, labels, labels_mask, is_train=True):
         cnn_features = self.encoder(images)
+        #cnn_features.register_hook(lambda grad: print('paddle backward cnn_features', grad.shape, grad.abs().mean().item()))
         (
             word_probs,
             struct_probs,
@@ -33,6 +34,16 @@ class Backbone(nn.Layer):
         ) = self.decoder(
             cnn_features, labels, images_mask, labels_mask, is_train=is_train
         )
+        # reprod_logger.add("words_alphas", words_alphas.cpu().detach().numpy())
+        # reprod_logger.add("c2p_probs", c2p_probs.cpu().detach().numpy())
+        # reprod_logger.add("c2p_alphas", c2p_alphas.cpu().detach().numpy())
+        #word_probs.register_hook(lambda grad: print('paddle backward word_probs', grad.shape, grad.abs().mean().item()))
+        #struct_probs.register_hook(lambda grad: print('paddle backward struct_probs', grad.shape, grad.abs().mean().item()))
+        #words_alphas.register_hook(lambda grad: print('paddle backward words_alphas', grad.shape, grad.abs().mean().item()))
+        #struct_alphas.register_hook(lambda grad: print('paddle backward struct_alphas', grad.shape, grad.abs().mean().item()))
+        #c2p_probs.register_hook(lambda grad: print('paddle backward c2p_probs', grad.shape, grad.abs().mean().item()))
+        #c2p_alphas.register_hook(lambda grad: print('paddle backward c2p_alphas', grad.shape, grad.abs().mean().item()))
+
 
         word_average_loss = self.cross(
             word_probs.reshape([-1, word_probs.shape[-1]]),
@@ -70,7 +81,6 @@ class Backbone(nn.Layer):
 
     def cal_kl_loss(self, child_alphas, parent_alphas, labels, image_mask, label_mask):
         batch_size, steps, height, width = child_alphas.shape
-        paddle.device.set_device(self.params['device'])
         new_child_alphas = paddle.zeros((batch_size, steps, height, width))
         new_child_alphas[:, 1:, :, :] = child_alphas[:, :-1, :, :].clone()
         new_child_alphas = new_child_alphas.reshape((batch_size * steps, height, width))

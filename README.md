@@ -1,26 +1,20 @@
 # Syntax-Aware Network for Handwritten Mathematical Expression Recognition
 
-This is the official pytorch implementation of [SAN](https://arxiv.org/abs/2203.01601) (CVPR'2022).
+This is the paddle implementation of [SAN](https://arxiv.org/abs/2203.01601) (CVPR'2022).
 ![SAN Overview](overview.png)
-
-
-### Environment
-
-```
-python==3.8.5
-numpy==1.22.2
-opencv-python==4.5.5.62
-PyYAML==6.0
-tensorboardX==2.5
-torch==1.6.0+cu101
-torchvision==0.7.0+cu101
-tqdm==4.64.0
-```
 
 ### Train
 
+single gpu
+
 ```
-python train.py --config path_to_config_yaml
+python train.py --config path_to_config_yaml --gpu 0
+```
+
+multi gpu
+
+```
+python -m paddle.distributed.launch --gpus='0,1,2,3' train.py --multi_gpu
 ```
 
 ### Inference
@@ -44,6 +38,16 @@ HME100K
 ```
 Download the dataset from the official website: https://ai.100tal.com/dataset
 ```
+
+### Pretrain Model
+checkpoints/best/best.pth
+
+Results on CROHME 2014
+| Model  | ExpRate |  ≤1  |  ≤2  |
+|--------|---------|------|------|
+| Paper  | 56.2    | 72.6 | 79.2 |
+| Paddle | 55.3    | 72.6 | 79.7 |
+
 
 ### Citation
 

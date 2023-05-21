@@ -1,6 +1,6 @@
 import paddle
-from tqdm import tqdm
-
+from tqdm.auto import tqdm
+import paddle.distributed as dist
 from utils import updata_lr, Meter, cal_score
 
 
@@ -12,15 +12,8 @@ def train(params, model, optimizer, epoch, train_loader, writer=None):
 
     word_right, struct_right, exp_right, length, cal_num = 0, 0, 0, 0, 0
 
-    with tqdm(train_loader, total=len(train_loader)) as pbar:
+    with tqdm(train_loader, miniters=int(len(train_loader)/20), maxinterval=200) as pbar:
         for batch_idx, (images, image_masks, labels, label_masks) in enumerate(pbar):
-            images, image_masks, labels, label_masks = (
-                images,
-                image_masks,
-                labels,
-                label_masks,
-            )
-
             batch, time = labels.shape[:2]
             if not 'lr_decay' in params or params['lr_decay'] == 'cosine':
                 updata_lr(
@@ -31,16 +24,16 @@ def train(params, model, optimizer, epoch, train_loader, writer=None):
                     params['epoches'],
                     params['lr'],
                 )
-
+            
+            optimizer.clear_grad()
             probs, loss = model(images, image_masks, labels, label_masks)
 
             word_loss, struct_loss, parent_loss, kl_loss = loss
             loss = word_loss + struct_loss + parent_loss + kl_loss
 
             loss.backward()
-
             optimizer.step()
-            optimizer.clear_grad()
+            
 
             loss_meter.add(loss.item())
 
@@ -52,7 +45,7 @@ def train(params, model, optimizer, epoch, train_loader, writer=None):
             length = length + time
             cal_num = cal_num + batch
 
-            if writer:
+            if writer and dist.get_rank() == 0:
                 current_step = epoch * len(train_loader) + batch_idx + 1
                 writer.add_scalar('train/loss', loss.item(), current_step)
                 writer.add_scalar('train/word_loss', word_loss.item(), current_step)
@@ -64,20 +57,22 @@ def train(params, model, optimizer, epoch, train_loader, writer=None):
                 writer.add_scalar('train/ExpRate', ExpRate, current_step)
                 writer.add_scalar('train/lr', optimizer.get_lr(), current_step)
 
+            # if dist.get_rank() == 0:
             pbar.set_description(
-                f'Epoch: {epoch+1} train loss: {loss.item():.4f} word loss: {word_loss.item():.4f} '
+                f'Epoch: {epoch+1} lr: {optimizer.get_lr():.6f} train loss: {loss.item():.4f} word loss: {word_loss.item():.4f} '
                 f'struct loss: {struct_loss.item():.4f} parent loss: {parent_loss.item():.4f} '
                 f'kl loss: {kl_loss.item():.4f} WordRate: {word_right / length:.4f} '
-                f'structRate: {struct_right / length:.4f} ExpRate: {exp_right / cal_num:.4f}'
+                f'structRate: {struct_right / length:.4f} ExpRate: {exp_right / cal_num:.4f}', refresh=False
             )
 
-        if writer:
+        if writer and dist.get_rank() == 0:
             writer.add_scalar('epoch/train_loss', loss_meter.mean, epoch + 1)
             writer.add_scalar('epoch/train_WordRate', word_right / length, epoch + 1)
             writer.add_scalar(
                 'epoch/train_structRate', struct_right / length, epoch + 1
             )
             writer.add_scalar('epoch/train_ExpRate', exp_right / cal_num, epoch + 1)
+        
         return (
             loss_meter.mean,
             word_right / length,
@@ -89,21 +84,15 @@ def train(params, model, optimizer, epoch, train_loader, writer=None):
 def eval(params, model, epoch, eval_loader, writer=None):
     model.eval()
     device = params['device']
+    paddle.device.set_device(device)
     loss_meter = Meter()
 
     word_right, struct_right, exp_right, length, cal_num = 0, 0, 0, 0, 0
 
-    with tqdm(eval_loader, total=len(eval_loader)) as pbar, paddle.no_grad():
+    with tqdm(eval_loader, miniters=int(len(eval_loader)/5), maxinterval=200) as pbar, paddle.no_grad():
         for batch_idx, (images, image_masks, labels, label_masks) in enumerate(
-            eval_loader
+            pbar
         ):
-            images, image_masks, labels, label_masks = (
-                images,
-                image_masks,
-                labels,
-                label_masks,
-            )
-
             batch, time = labels.shape[:2]
 
             probs, loss = model(
@@ -122,7 +111,7 @@ def eval(params, model, epoch, eval_loader, writer=None):
             length = length + time
             cal_num = cal_num + batch
 
-            if writer:
+            if writer and dist.get_rank() == 0:
                 current_step = epoch * len(eval_loader) + batch_idx + 1
                 writer.add_scalar('eval/loss', loss.item(), current_step)
                 writer.add_scalar('eval/word_loss', word_loss.item(), current_step)
@@ -134,10 +123,10 @@ def eval(params, model, epoch, eval_loader, writer=None):
             pbar.set_description(
                 f'Epoch: {epoch + 1} eval loss: {loss.item():.4f} word loss: {word_loss.item():.4f} '
                 f'struct loss: {struct_loss.item():.4f} WordRate: {word_right / length:.4f} '
-                f'structRate: {struct_right / length:.4f} ExpRate: {exp_right / cal_num:.4f}'
+                f'structRate: {struct_right / length:.4f} ExpRate: {exp_right / cal_num:.4f}', refresh=False
             )
 
-        if writer:
+        if writer and dist.get_rank() == 0:
             writer.add_scalar('epoch/eval_loss', loss_meter.mean, epoch + 1)
             writer.add_scalar('epoch/eval_WordRate', word_right / length, epoch + 1)
             writer.add_scalar('epoch/eval_structRate', struct_right / length, epoch + 1)

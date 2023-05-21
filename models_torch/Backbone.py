@@ -16,10 +16,23 @@ class Backbone(nn.Module):
         self.ratio = params['densenet']['ratio'] if params['encoder']['net'] == 'DenseNet' else 16 * params['resnet'][
             'conv1_stride']
 
-    def forward(self, images, images_mask, labels, labels_mask, is_train=True):
+    def forward(self, images, images_mask, labels, labels_mask, reprod_logger, is_train=True):
 
         cnn_features = self.encoder(images)
-        word_probs, struct_probs, words_alphas, struct_alphas, c2p_probs, c2p_alphas = self.decoder(cnn_features, labels, images_mask, labels_mask, is_train=is_train)
+        # cnn_features.register_hook(lambda grad: print('pytorch backward cnn_features', grad.shape, grad.abs().mean().item()))
+        word_probs, struct_probs, words_alphas, struct_alphas, c2p_probs, c2p_alphas = self.decoder(cnn_features, labels, images_mask, labels_mask, reprod_logger, is_train=is_train)
+
+        reprod_logger.add("words_alphas", words_alphas.cpu().detach().numpy())
+        # reprod_logger.add("struct_alphas", struct_alphas.cpu().detach().numpy())
+        reprod_logger.add("c2p_probs", c2p_probs.cpu().detach().numpy())
+        reprod_logger.add("c2p_alphas", c2p_alphas.cpu().detach().numpy())
+
+        # word_probs.register_hook(lambda grad: print('pytorch backward word_probs', grad.shape, grad.abs().mean().item()))
+        # struct_probs.register_hook(lambda grad: print('pytorch backward struct_probs', grad.shape, grad.abs().mean().item()))
+        # words_alphas.register_hook(lambda grad: print('pytorch backward words_alphas', grad.shape, grad.abs().mean().item()))
+        # c2p_probs.register_hook(lambda grad: print('pytorch backward c2p_probs', grad.shape, grad.abs().mean().item()))
+        # c2p_alphas.register_hook(lambda grad: print('pytorch backward c2p_alphas', grad.shape, grad.abs().mean().item()))
+
 
         word_average_loss = self.cross(word_probs.contiguous().view(-1, word_probs.shape[-1]), labels[:,:,1].view(-1))
 
@@ -39,10 +52,10 @@ class Backbone(nn.Module):
     def cal_kl_loss(self, child_alphas, parent_alphas, labels, image_mask, label_mask):
 
         batch_size, steps, height, width = child_alphas.shape
-        new_child_alphas = torch.zeros((batch_size, steps, height, width)).to(self.params['device'])
+        new_child_alphas = torch.zeros((batch_size, steps, height, width)).to(self.params['device'].replace('gpu','cuda'))
         new_child_alphas[:, 1:, :, :] = child_alphas[:,:-1,:,:].clone()
         new_child_alphas = new_child_alphas.view((batch_size*steps, height, width))
-        parent_ids = labels[:,:,2] + steps * torch.arange(batch_size)[:,None].to(self.params['device'])
+        parent_ids = labels[:,:,2] + steps * torch.arange(batch_size)[:,None].to(self.params['device'].replace('gpu','cuda'))
 
         new_child_alphas = new_child_alphas[parent_ids]
         new_child_alphas = new_child_alphas.view((batch_size, steps, height, width))[:, 1:, :, :]

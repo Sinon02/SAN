@@ -14,10 +14,12 @@ from models.Backbone import Backbone as Backbone_paddle
 from models_torch.Backbone import Backbone as Backbone_torch
 from utils import init
 
+device = "gpu:0"  # you can also set it as "cpu"
+torch_device = torch.device("cuda:1" if "gpu" in device else "cpu")
+paddle.set_device(device)
 
 def test_forward(params, test_data):
-    device = "cpu"  # you can also set it as "cpu"
-    torch_device = torch.device("cuda:0" if "gpu" in device else "cpu")
+    
     paddle.set_device(device)
 
     # get inference data
@@ -49,19 +51,24 @@ def test_forward(params, test_data):
 
     # save the paddle output
     reprod_logger = ReprodLogger()
-    paddle_out = paddle_model(*test_paddle_data)
+    paddle_out = paddle_model(*test_paddle_data, reprod_logger, is_train=True)
     reprod_logger.add("word_probs", paddle_out[0][0].cpu().detach().numpy())
     reprod_logger.add("struct_probs", paddle_out[0][1].cpu().detach().numpy())
     reprod_logger.add("word_average_loss", paddle_out[1][0].cpu().detach().numpy())
     reprod_logger.add("struct_average_loss", paddle_out[1][1].cpu().detach().numpy())
-    reprod_logger.save("./result/forward_paddle.npy")
+    reprod_logger.add("parent_average_loss", paddle_out[1][2].cpu().detach().numpy())
+    reprod_logger.add("kl_average_loss", paddle_out[1][3].cpu().detach().numpy())
 
+    reprod_logger.save("./result/forward_paddle.npy")
+    reprod_logger = ReprodLogger()
     # save the torch output
-    torch_out = torch_model(*test_torch_data)
+    torch_out = torch_model(*test_torch_data, reprod_logger,is_train=True)
     reprod_logger.add("word_probs", torch_out[0][0].cpu().detach().numpy())
     reprod_logger.add("struct_probs", torch_out[0][1].cpu().detach().numpy())
     reprod_logger.add("word_average_loss", torch_out[1][0].cpu().detach().numpy())
     reprod_logger.add("struct_average_loss", torch_out[1][1].cpu().detach().numpy())
+    reprod_logger.add("parent_average_loss", torch_out[1][2].cpu().detach().numpy())
+    reprod_logger.add("kl_average_loss", torch_out[1][3].cpu().detach().numpy())
     reprod_logger.save("./result/forward_ref.npy")
 
 
@@ -75,7 +82,7 @@ if __name__ == "__main__":
         '--gpu',
         type=int,
         help='Use which GPU to train model, -1 means use CPU',
-        default=-1,
+        default=0,
     )
     parser.add_argument(
         '--multi_gpu', help='whether use multi gpu', action='store_true'
@@ -83,8 +90,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     params, train_loader, eval_loader = init(args)
+    params['dropout'] = False 
+    params['densenet']['use_dropout'] = False
 
-    for i in range(random.randint(1, 500)):
+    paddle.set_device(device)
+    
+    for i in range(50):
         test_data = next(eval_loader())
 
     test_forward(params, test_data)
@@ -96,4 +107,4 @@ if __name__ == "__main__":
 
     # compare result and produce log
     diff_helper.compare_info(torch_info, paddle_info)
-    diff_helper.report(path="./result/log/forward_diff.log", diff_threshold=1e-4)
+    diff_helper.report(path="./result/log/forward_diff.log", diff_threshold=1e-5)

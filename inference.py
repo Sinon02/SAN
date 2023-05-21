@@ -8,11 +8,12 @@ from tqdm import tqdm
 from utils import load_config, load_checkpoint
 from infer.Backbone import Backbone
 from dataset import Words
+import textdistance
 
 parser = argparse.ArgumentParser(description='Spatial channel attention')
-parser.add_argument('--config', default='config.yaml', type=str, help='配置文件路径')
-parser.add_argument('--image_path', default='/home/yuanye/work/data/CROHME2014/14_off_image_test', type=str, help='测试image路径')
-parser.add_argument('--label_path', default='/home/yuanye/work/data/CROHME2014/test_caption.txt', type=str, help='测试label路径')
+parser.add_argument('--config', default='14.yaml', type=str, help='配置文件路径')
+parser.add_argument('--image_path', default='data/14_test_images', type=str, help='测试image路径')
+parser.add_argument('--label_path', default='data/test_caption.txt', type=str, help='测试label路径')
 args = parser.parse_args()
 
 if not args.config:
@@ -22,13 +23,8 @@ if not args.config:
 """加载config文件"""
 params = load_config(args.config)
 
-devices = paddle.device.get_available_device()
-if len(devices) > 1:
-    device = devices[args.gpu + 1]
-else:
-    # use cpu
-    device = devices[0]
-params['device'] = device
+params['device'] = 'gpu:0'
+paddle.device.set_device(params['device'])
 
 words = Words(params['word_path'])
 params['word_num'] = len(words)
@@ -41,7 +37,7 @@ load_checkpoint(model, None, params['checkpoint'])
 
 model.eval()
 
-word_right, node_right, exp_right, length, cal_num = 0, 0, 0, 0, 0
+word_right, node_right, exp_right_0, exp_right_1, exp_right_2, length, cal_num = 0, 0, 0, 0, 0, 0, 0
 
 with open(args.label_path) as f:
     labels = f.readlines()
@@ -92,7 +88,6 @@ def convert(nodeid, gtd_list):
 
 with paddle.no_grad():
     bad_case = {}
-    paddle.device.set_device(device)
     for item in tqdm(labels):
         name, *label = item.split()
         label = ' '.join(label)
@@ -109,8 +104,17 @@ with paddle.no_grad():
 
         latex_list = convert(1, prediction)
         latex_string = ' '.join(latex_list)
-        if latex_string == label.strip():
-            exp_right += 1
+        gt_list = label.strip().split()
+        distance = textdistance.levenshtein.distance(latex_list, gt_list)
+        if distance == 0:
+            exp_right_0 += 1
+            exp_right_1 += 1
+            exp_right_2 += 1
+        elif distance == 1:
+            exp_right_1 += 1
+            exp_right_2 += 1
+        elif distance == 2:
+            exp_right_2 += 1
         else:
             bad_case[name] = {
                 'label': label,
@@ -118,7 +122,9 @@ with paddle.no_grad():
                 'list': prediction
             }
 
-    print(exp_right / len(labels))
+    print(exp_right_0 / len(labels))
+    print(exp_right_1 / len(labels))
+    print(exp_right_2 / len(labels))
 
 with open('bad_case.json', 'w') as f:
     json.dump(bad_case, f, ensure_ascii=False)

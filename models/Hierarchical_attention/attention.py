@@ -22,8 +22,9 @@ class Attention(nn.Layer):
         self.attention_weight = nn.Linear(512, self.attention_dim, bias_attr=False)
         self.alpha_convert = nn.Linear(self.attention_dim, 1)
 
-    def forward(self, cnn_features, hidden, alpha_sum, image_mask=None):
+    def forward(self, cnn_features, hidden, alpha_sum, image_mask):
         query = self.hidden_weight(hidden)
+        # reprod_logger.add(f"alpha_sum_{i}_{name}_1", alpha_sum.cpu().detach().numpy())
         alpha_sum_trans = self.attention_conv(alpha_sum)
         coverage_alpha = self.attention_weight(alpha_sum_trans.transpose((0, 2, 3, 1)))
 
@@ -34,14 +35,17 @@ class Attention(nn.Layer):
             + coverage_alpha
             + cnn_features_trans.transpose((0, 2, 3, 1))
         )
+
         energy = self.alpha_convert(alpha_score)
         energy = energy - energy.max()
         energy_exp = paddle.exp(energy.squeeze(-1))
         if image_mask is not None:
             energy_exp = energy_exp * image_mask.squeeze(1)
         alpha = energy_exp / (energy_exp.sum(-1).sum(-1)[:, None, None] + 1e-10)
+        # reprod_logger.add(f"alpha_{i}_{name}", alpha.cpu().detach().numpy())
 
         alpha_sum = alpha[:, None, :, :] + alpha_sum
+        # reprod_logger.add(f"alpha_sum_{i}_{name}_2", alpha_sum.cpu().detach().numpy())
 
         context_vector = (alpha[:, None, :, :] * cnn_features).sum(-1).sum(-1)
 

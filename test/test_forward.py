@@ -14,8 +14,8 @@ from models.Backbone import Backbone as Backbone_paddle
 from models_torch.Backbone import Backbone as Backbone_torch
 from utils import init
 
-device = "gpu:0"  # you can also set it as "cpu"
-torch_device = torch.device("cuda:1" if "gpu" in device else "cpu")
+device = "cpu"  # you can also set it as "cpu"
+torch_device = torch.device("cuda:0" if "gpu" in device else "cpu")
 paddle.set_device(device)
 
 def test_forward(params, test_data):
@@ -82,7 +82,7 @@ if __name__ == "__main__":
         '--gpu',
         type=int,
         help='Use which GPU to train model, -1 means use CPU',
-        default=0,
+        default=-1,
     )
     parser.add_argument(
         '--multi_gpu', help='whether use multi gpu', action='store_true'
@@ -96,7 +96,7 @@ if __name__ == "__main__":
     paddle.set_device(device)
     
     for i in range(50):
-        test_data = next(eval_loader())
+        test_data = next(train_loader())
 
     test_forward(params, test_data)
 

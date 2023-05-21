@@ -2,10 +2,10 @@
 experiment: "SAN"
 
 # 随机种子
-seed: 20230518
+seed: 20230501
 
 # 训练参数
-epoches: 350
+epoches: 300
 batch_size: 5
 workers: 0
 optimizer: Momentum

@@ -16,16 +16,11 @@ class Backbone(nn.Module):
         self.ratio = params['densenet']['ratio'] if params['encoder']['net'] == 'DenseNet' else 16 * params['resnet'][
             'conv1_stride']
 
-    def forward(self, images, images_mask, labels, labels_mask, reprod_logger, is_train=True):
+    def forward(self, images, images_mask, labels, labels_mask, is_train=True):
 
         cnn_features = self.encoder(images)
         # cnn_features.register_hook(lambda grad: print('pytorch backward cnn_features', grad.shape, grad.abs().mean().item()))
-        word_probs, struct_probs, words_alphas, struct_alphas, c2p_probs, c2p_alphas = self.decoder(cnn_features, labels, images_mask, labels_mask, reprod_logger, is_train=is_train)
-
-        reprod_logger.add("words_alphas", words_alphas.cpu().detach().numpy())
-        # reprod_logger.add("struct_alphas", struct_alphas.cpu().detach().numpy())
-        reprod_logger.add("c2p_probs", c2p_probs.cpu().detach().numpy())
-        reprod_logger.add("c2p_alphas", c2p_alphas.cpu().detach().numpy())
+        word_probs, struct_probs, words_alphas, struct_alphas, c2p_probs, c2p_alphas = self.decoder(cnn_features, labels, images_mask, labels_mask, is_train=is_train)
 
         # word_probs.register_hook(lambda grad: print('pytorch backward word_probs', grad.shape, grad.abs().mean().item()))
         # struct_probs.register_hook(lambda grad: print('pytorch backward struct_probs', grad.shape, grad.abs().mean().item()))

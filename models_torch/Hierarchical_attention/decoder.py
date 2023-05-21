@@ -62,11 +62,10 @@ class SAN_decoder(nn.Module):
         if params['dropout']:
             self.dropout = nn.Dropout(params['dropout_ratio'])
 
-    def forward(self, cnn_features, labels, images_mask, labels_mask, reprod_logger, is_train=True):
+    def forward(self, cnn_features, labels, images_mask, labels_mask, is_train=True):
 
         batch_size, num_steps, _ = labels.shape
         height, width = cnn_features.shape[2:]
-        reprod_logger.add(f"cnn_features", cnn_features.cpu().detach().numpy())
         word_probs = torch.zeros((batch_size, num_steps, self.word_num)).to(device=self.device)
         struct_probs = torch.zeros((batch_size, num_steps, self.struct_num)).to(device=self.device)
         c2p_probs = torch.zeros((batch_size, num_steps, self.word_num)).to(device=self.device)
@@ -96,12 +95,8 @@ class SAN_decoder(nn.Module):
                 # word
                 word_hidden_first = self.word_input_gru(word_embedding, parent_hidden)
                 word_context_vec, word_alpha, word_alpha_sum = self.word_attention(cnn_features, word_hidden_first,
-                                                                                   word_alpha_sum, images_mask, reprod_logger, i, 'word')
+                                                                                   word_alpha_sum, images_mask, 'word')
                 hidden = self.word_out_gru(word_context_vec, word_hidden_first)
-                reprod_logger.add(f"hidden_{i}", hidden.cpu().detach().numpy())
-                reprod_logger.add(f"word_hidden_first_{i}", word_hidden_first.cpu().detach().numpy())
-                reprod_logger.add(f"word_embedding_{i}", word_embedding.cpu().detach().numpy())
-                reprod_logger.add(f"word_context_vec_{i}", word_context_vec.cpu().detach().numpy())
 
                 if i != num_steps - 1:
                     parent_hiddens[(i+1)*batch_size:(i+2)*batch_size,:] = hidden
@@ -123,7 +118,7 @@ class SAN_decoder(nn.Module):
 
                 c2p_hidden_first = self.c2p_input_gru(torch.cat((child_embedding, relation_embedding), dim=1), c2p_hidden)
                 c2p_context_vec, c2p_alpha, c2p_alpha_sum = self.c2p_attention(cnn_features, c2p_hidden_first,
-                                                                               c2p_alpha_sum, images_mask, reprod_logger, i, 'c2p')
+                                                                               c2p_alpha_sum, images_mask, 'c2p')
                 c2p_hidden = self.c2p_out_gru(word_context_vec, word_hidden_first)
 
                 c2p_state = self.c2p_state_weight(c2p_hidden)
@@ -157,31 +152,21 @@ class SAN_decoder(nn.Module):
 
                 # word
                 word_hidden_first = self.word_input_gru(word_embedding, parent_hidden)
-                # reprod_logger.add(f"word_hidden_first_{i}", word_hidden_first.cpu().detach().numpy())
 
                 word_context_vec, word_alpha, word_alpha_sum = self.word_attention(cnn_features, word_hidden_first,
                                                                                    word_alpha_sum, images_mask)
-                # reprod_logger.add(f"word_context_vec_{i}", word_context_vec.cpu().detach().numpy())
-                # reprod_logger.add(f"word_alpha_{i}", word_alpha.cpu().detach().numpy())
-                # reprod_logger.add(f"word_alpha_sum_{i}", word_alpha_sum.cpu().detach().numpy())
                 hidden = self.word_out_gru(word_context_vec, word_hidden_first)
-                # reprod_logger.add(f"hidden_{i}", hidden.cpu().detach().numpy())
 
                 current_state = self.word_state_weight(hidden)
-                # reprod_logger.add(f"current_state_{i}", current_state.cpu().detach().numpy())
                 word_weighted_embedding = self.word_embedding_weight(word_embedding)
-                # reprod_logger.add(f"word_weighted_embedding_{i}", word_weighted_embedding.cpu().detach().numpy())
                 word_context_weighted = self.word_context_weight(word_context_vec)
-                # reprod_logger.add(f"word_context_weighted_{i}", word_context_weighted.cpu().detach().numpy())
 
                 if self.params['dropout']:
                     word_out_state = self.dropout(current_state + word_weighted_embedding + word_context_weighted)
                 else:
                     word_out_state = current_state + word_weighted_embedding + word_context_weighted
-                    # reprod_logger.add(f"word_out_state_{i}", word_out_state.cpu().detach().numpy())
 
                 word_prob = self.word_convert(word_out_state)
-                # reprod_logger.add(f"word_prob_{i}", word_prob.cpu().detach().numpy())
 
 
                 word_probs[0][i, :] = word_prob

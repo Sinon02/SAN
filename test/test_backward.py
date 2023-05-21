@@ -19,7 +19,7 @@ from utils import init
 
 # set device
 device = "cpu"  # you can also set it as "cpu"
-torch_device = torch.device("cuda:1" if "gpu" in device else "cpu")
+torch_device = torch.device("cuda:0" if "gpu" in device else "cpu")
 paddle.set_device(device)
 
 
@@ -151,38 +151,21 @@ def test_backward(params, inputs):
     torch_model.to(torch_device)
 
     # init optimizer
-    # opt_paddle = getattr(paddle.optimizer, 'SGD')(
-    #     learning_rate=1e-3,
-    #     # epsilon=float(params['eps']),
-    #     parameters=paddle_model.parameters(),
-    #     weight_decay=float(params['weight_decay']),
-    #     #rho=0.9,
-    #     grad_clip=nn.ClipGradByGlobalNorm(params['gradient']),
-    # )
-    opt_paddle = paddle.optimizer.Adam(
+    opt_paddle = getattr(paddle.optimizer, 'Momentum')(
         learning_rate=1e-3,
-        beta1=0.9,
-        beta2=0.999,
-        epsilon=1e-5,
+        epsilon=float(params['eps']),
         parameters=paddle_model.parameters(),
-        weight_decay= float(params['weight_decay']),
-        grad_clip =nn.ClipGradByGlobalNorm(params['gradient'])
+        weight_decay=float(params['weight_decay']),
+        grad_clip=nn.ClipGradByGlobalNorm(params['gradient']),
     )
 
-    # opt_torch = getattr(torch.optim, 'SGD')(
-    #     torch_model.parameters(),
-    #     lr=1e-3,
-    #     # alpha=0.95,
-    #     # eps=float(params['eps']),
-    #     # momentum=0.9,
-    #     weight_decay=float(params['weight_decay']),
-    # )
-    opt_torch = torch.optim.Adam(
+    opt_torch = getattr(torch.optim, 'SGD')(
         torch_model.parameters(),
         lr=1e-3,
-        betas=(0.9, 0.999),
-        eps=1e-5,
-        weight_decay= float(params['weight_decay']))
+        eps=float(params['eps']),
+        momentum=0.9,
+        weight_decay=float(params['weight_decay']),
+    )
 
     # prepare logger & load data
     reprod_logger = ReprodLogger()

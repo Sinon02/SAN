@@ -34,10 +34,13 @@ CROHME:
 Download the dataset from: https://github.com/JianshuZhang/WAP/tree/master/data
 ```
 
-HME100K
+数据集放入`data/CROHME/`后，依次执行预处理代码：
+```python
+python data/gen_hybrid_data.py
+python data/gen_pkl.py
+python data/gen_symbols_struct_dict.py
 ```
-Download the dataset from the official website: https://ai.100tal.com/dataset
-```
+
 
 ### Pretrain Model
 checkpoints/best/best.pth
